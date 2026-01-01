@@ -42,7 +42,6 @@ Connect to the database (User: `SYSTEM`) and execute the user setup script:
 
 ```sql
 @sql/01_setup_users.sql
-
 ```
 
 ### 4. Run the Pipeline
@@ -52,14 +51,12 @@ Connect as `RETAIL_DW` and execute the following steps:
 1. **Build Schema:** Run the DDL script.
 ```sql
 @sql/02_ddl_tables.sql
-
 ```
 
 
 2. **Generate Data:** Run the Python generator.
 ```bash
 python scripts/generate_data.py
-
 ```
 
 
@@ -70,10 +67,7 @@ BEGIN
     pkg_etl_retail.load_daily_sales;
 END;
 /
-
 ```
-
-
 
 ## 📊 Results
 
@@ -81,7 +75,3 @@ END;
 * **Process:** Validation of business rules and calculation of derived metrics (Revenue).
 * **Output:** Clean, referentially intact data loaded into `FACT_SALES`.
 * **Efficiency:** Initial benchmarks show a **94% data yield**, successfully filtering invalid category data while preserving valid transactions.
-
-```
-
-```
