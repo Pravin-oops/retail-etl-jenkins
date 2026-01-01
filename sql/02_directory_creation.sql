@@ -1,7 +1,7 @@
 -- Run this as RETAIL_DW
 -- Create a logical reference to the physical folder inside the Docker container
--- Note: /opt/oracle/oradata/input_data is the path we defined in docker-compose.yml
-CREATE OR REPLACE DIRECTORY source_data_dir AS '/opt/oracle/oradata/input_data';
+-- Note: /data is the path we defined in docker-compose.yml
+CREATE OR REPLACE DIRECTORY source_data_dir AS '/data';
 -- Verify access (This checks if Oracle can "see" the folder)
 SELECT * FROM all_directories WHERE directory_name = 'SOURCE_DATA_DIR';
 
