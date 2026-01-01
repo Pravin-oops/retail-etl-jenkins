@@ -4,22 +4,33 @@ import os
 from datetime import datetime
 from faker import Faker
 
-# --- CONFIGURATION (V1.1 Update) ---
+# --- CONFIGURATION (V1.1 Robust Fix) ---
 
-# 1. Default to the Unified Docker Path (for Jenkins/Oracle)
-DATA_DIR = '/data'
+# 1. Check if we are on Windows
+IS_WINDOWS = (os.name == 'nt')
 
-# 2. Fallback for Local Testing (Windows/Mac)
-# If '/data' doesn't exist (which is true on your laptop), 
-# use the project's local 'data' folder.
-# Get the folder where THIS script is located (.../retail-etl-project/script/)
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-    
-# Go up one level to the project root, then into 'data'
-# Result: .../retail-etl-project/data/
-DATA_DIR = os.path.join(os.path.dirname(SCRIPT_DIR), 'data')
+# 2. Define the Docker Path
+DOCKER_DIR = '/data'
 
-# Define the output file
+# 3. Path Selection Logic
+# - If Windows: ALWAYS use local project folder (Prevents C:\data confusion)
+# - If Linux: Check if /data exists. If yes, assume Docker. If no, use local.
+if IS_WINDOWS:
+    USE_LOCAL_DIR = True
+else:
+    # On Linux/Mac, only use /data if it actually exists (Docker environment)
+    USE_LOCAL_DIR = not os.path.exists(DOCKER_DIR)
+
+if USE_LOCAL_DIR:
+    # Calculate path relative to THIS script file
+    # Works regardless of where you run the command from
+    SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+    # Go up one level (../) then into 'data'
+    DATA_DIR = os.path.join(os.path.dirname(SCRIPT_DIR), 'data')
+else:
+    DATA_DIR = DOCKER_DIR
+
+# 4. Set Output File
 OUTPUT_FILE = os.path.join(DATA_DIR, 'sales_data.csv')
 
 # Ensure the directory exists
@@ -30,7 +41,8 @@ fake = Faker()
 NUM_ROWS = 1000
 
 print(f"--- Starting Data Generation (V1.1) ---")
-print(f"Target Path: {OUTPUT_FILE}")  # <--- CHECK THIS LINE IN YOUR OUTPUT
+print(f"OS Detected: {'Windows' if IS_WINDOWS else 'Linux/Mac'}")
+print(f"Target Path: {OUTPUT_FILE}")  # <--- Verify this line!
 
 # Define Product Categories
 CATEGORIES = ['Electronics', 'Home', 'Office', 'Books', 'Garden']
