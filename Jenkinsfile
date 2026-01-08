@@ -1,22 +1,19 @@
 pipeline {
     agent any
 
-    // 1. SCHEDULE: Run at 9:00 AM IST daily
-    // Cron Syntax: Minute Hour Day Month DayOfWeek
-    // TZ=Asia/Kolkata ensures it follows Indian Standard Time
+    // SCHEDULE: 03:30 AM UTC = 09:00 AM IST
     triggers {
-        cron('TZ=Asia/Kolkata 0 9 * * *') 
+        cron('30 3 * * *') 
     }
 
     environment {
         // Ensure Python knows where to find libraries
-        PATH = "/opt/venv/bin:$PATH"
+        PATH = "/opt/venv/bin:\$PATH"
     }
 
     stages {
         stage('Checkout') {
             steps {
-                // Get the latest code from the workspace
                 checkout scm
             }
         }
@@ -24,8 +21,7 @@ pipeline {
         stage('1. Generate Data') {
             steps {
                 script {
-                    echo "--- Generating Data for ${new Date()} ---"
-                    // Runs the V2 script you built earlier
+                    echo "--- Generating Data for \${new Date()} ---"
                     sh 'python3 script/generate_data.py'
                 }
             }
@@ -35,7 +31,6 @@ pipeline {
             steps {
                 script {
                     echo "--- Triggering Oracle PL/SQL ---"
-                    // Runs the new Python Trigger we just made
                     sh 'python3 script/trigger_etl.py'
                 }
             }
