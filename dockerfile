@@ -11,8 +11,8 @@ RUN apt-get update && apt-get install -y python3 python3-pip python3-venv
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Install the Faker library inside the venv
-RUN pip install faker
+# Install the Faker,oracledb library inside the venv
+RUN pip install faker oracledb
 
 # Switch back to the Jenkins user for security
 USER jenkins
