@@ -7,8 +7,8 @@ pipeline {
     }
 
     environment {
-        // Ensure Python knows where to find libraries
-        PATH = "/opt/venv/bin:\$PATH"
+        // CORRECT SYNTAX: This prepends /opt/venv/bin to the existing PATH
+        PATH+VENV = '/opt/venv/bin'
     }
 
     stages {
@@ -22,6 +22,7 @@ pipeline {
             steps {
                 script {
                     echo "--- Generating Data for \${new Date()} ---"
+                    // Jenkins now knows where python3 is
                     sh 'python3 script/generate_data.py'
                 }
             }
