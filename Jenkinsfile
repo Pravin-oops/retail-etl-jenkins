@@ -6,11 +6,6 @@ pipeline {
         cron('30 3 * * *') 
     }
 
-    environment {
-        // CORRECT SYNTAX: This prepends /opt/venv/bin to the existing PATH
-        PATH+VENV = '/opt/venv/bin'
-    }
-
     stages {
         stage('Checkout') {
             steps {
@@ -22,8 +17,8 @@ pipeline {
             steps {
                 script {
                     echo "--- Generating Data for \${new Date()} ---"
-                    // Jenkins now knows where python3 is
-                    sh 'python3 script/generate_data.py'
+                    // Use the Full Path to the Virtual Env Python
+                    sh '/opt/venv/bin/python3 script/generate_data.py'
                 }
             }
         }
@@ -32,7 +27,8 @@ pipeline {
             steps {
                 script {
                     echo "--- Triggering Oracle PL/SQL ---"
-                    sh 'python3 script/trigger_etl.py'
+                    // Use the Full Path to the Virtual Env Python
+                    sh '/opt/venv/bin/python3 script/trigger_etl.py'
                 }
             }
         }
