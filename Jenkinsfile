@@ -1,43 +1,43 @@
 pipeline {
     agent any
 
-    // --------------------------------------------------------
-    // SCHEDULE REMOVED
-    // This pipeline is now "On-Demand" only.
-    // --------------------------------------------------------
+    // Manual Trigger Only (No Schedule)
 
     stages {
         stage('0. Sync Local Code') {
             steps {
                 script {
-                    echo "--- Syncing files from Local Laptop (/project) ---"
+                    echo "--- Syncing files from Local Laptop ---"
                     cleanWs()
-                    
-                    // Copy folders from mounted drive to workspace
                     sh 'cp -r /project/script .'
                     sh 'cp -r /project/sql .'
-                    
-                    // Verify files
-                    sh 'ls -R' 
                 }
             }
         }
 
-        stage('1. Generate Data') {
+        stage('1. Reset Schema') {
             steps {
                 script {
-                    echo "--- Generating Data ---"
-                    // Use Absolute Path to Python
+                    echo "--- 🧹 Wiping Analysis Layer (Avoiding Duplicates) ---"
+                    // RUNS THE NEW SCRIPT to execute 03_ddl_tables.sql
+                    sh '/opt/venv/bin/python3 script/data_truncate.py sql/03_ddl_tables.sql'
+                }
+            }
+        }
+
+        stage('2. Generate Data') {
+            steps {
+                script {
+                    echo "--- 🎲 Generating New Data ---"
                     sh '/opt/venv/bin/python3 script/generate_data.py'
                 }
             }
         }
 
-        stage('2. Run ETL') {
+        stage('3. Run ETL') {
             steps {
                 script {
-                    echo "--- Triggering Oracle PL/SQL ---"
-                    // Use Absolute Path to Python
+                    echo "--- 🚀 Loading Data to Oracle ---"
                     sh '/opt/venv/bin/python3 script/trigger_etl.py'
                 }
             }
@@ -49,7 +49,7 @@ pipeline {
             echo '✅ Pipeline Succeeded!'
         }
         failure {
-            echo '❌ Pipeline Failed. Check logs.'
+            echo '❌ Pipeline Failed.'
         }
     }
 }

@@ -11,11 +11,10 @@
 
 This project demonstrates a fully automated **Data Engineering Pipeline**. It evolves the manual "Run Scripts" approach of v2.0 into a professional **CI/CD Workflow** using Jenkins.
 
-**Version 3.0 Major Upgrade:**
+**Version 3.0 Pipeline Upgrade:**
 
 * **Automation:** A **Jenkins Pipeline** now orchestrates the entire flow (Data Generation → ETL Triggering).
 * **Infrastructure as Code:** Jenkins is containerized and pre-configured with Python and Oracle drivers.
-* **Local Development Loop:** Unique "Local Mount" strategy allows testing code changes instantly without waiting for Git pushes.
 
 ---
 
@@ -47,7 +46,6 @@ retail-etl-jenkins/
 ├── docker-compose.yml           # [Updated] Services: Oracle + Jenkins
 ├── dockerfile                   # [New] Custom Jenkins Image (w/ Python & OracleDB)
 └── README.md
-
 ```
 
 ---
@@ -60,7 +58,6 @@ Start the containerized environment (Oracle Database + Jenkins Server).
 
 ```bash
 docker-compose up -d --build
-
 ```
 
 * **Oracle DB:** Port `1521` (Persistent Data in `oracle_data` volume)
