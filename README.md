@@ -3,28 +3,38 @@
 
 # 🛒 Retail ETL Project (v3.0)
 
-**Version:** 3.0 (Jenkins Automation)
+**Version:** 3.0 (Jenkins CI/CD + Zero Data Loss)
 **Release Date:** January 2026
-**Architecture:** Automated CI/CD Pipeline (Jenkins) + Decoupled ELT (Oracle)
+**Architecture:** Automated Pipeline (Jenkins) + Oracle ELT + Persistent Error Logging
 
 ## 🚀 Overview
 
-This project demonstrates a fully automated **Data Engineering Pipeline**. It evolves the manual "Run Scripts" approach of v2.0 into a professional **CI/CD Workflow** using Jenkins.
+This project represents the final evolution of the Retail ETL Pipeline. It implements a production-grade **CI/CD Workflow** that guarantees **Zero Data Loss**.
 
-**Version 3.0 Pipeline Upgrade:**
+**Version 3.0 Key Features:**
 
-* **Automation:** A **Jenkins Pipeline** now orchestrates the entire flow (Data Generation → ETL Triggering).
-* **Infrastructure as Code:** Jenkins is containerized and pre-configured with Python and Oracle drivers.
+* **Automated Orchestration:** A containerized Jenkins pipeline manages the entire lifecycle (Code Sync → Data Generation → ETL Execution).
+* **Zero Data Loss Architecture:** * **Raw Vault:** 100% of incoming data is archived immediately before processing.
+* **Error Trapping:** Invalid rows (e.g., Missing Categories, System Errors) are captured in a persistent `ERR_SALES_REJECTS` table instead of being lost.
+
+
+* **Idempotency:** A smart schema reset utility (`data_truncate.py`) ensures the pipeline can be re-run safely without creating duplicate data in the analysis layer.
 
 ---
 
-## 🏗️ Architecture Flow (v3.0)
+## 🏗️ Architecture Flow
 
-1. **Trigger:** User clicks "Build Now" in Jenkins (Manual Trigger for Dev/Test).
-2. **Sync (Stage 1):** Jenkins pulls the latest Python/SQL code directly from your local project folder.
-3. **Generate (Stage 2):** Jenkins executes `generate_data.py` to create a synthetic CSV file (e.g., `sales_data_13012026.csv`).
-4. **Process (Stage 3):** Jenkins executes `trigger_etl.py` to call the Oracle PL/SQL package.
-5. **Load:** Oracle validates the file, archives it to the **Raw Vault**, and loads the **Star Schema**.
+1. **Trigger:** Manual Build in Jenkins (One-Click Deployment).
+2. **Sync (Stage 0):** Jenkins pulls the latest Python & SQL code from the local development environment.
+3. **Reset (Stage 1):** Executes `data_truncate.py` to wipe the Analysis Layer (`fact_sales`, dimensions) while strictly preserving the **Raw Vault** and **Error History**.
+4. **Generate (Stage 2):** Python script generates synthetic retail data (including 5% "Bad Data" to test error handling).
+5. **Process (Stage 3):** Oracle PL/SQL Package (`pkg_etl_retail`):
+* **Archive:** Copies every row to `RAW_SALES_ARCHIVE` (The Time Machine).
+* **Validate:** Filters out rows with missing categories or data quality issues.
+* **Load:** Inserts valid rows into the Star Schema (`FACT_SALES`).
+* **Reject:** Inserts invalid rows into `ERR_SALES_REJECTS` for auditing.
+
+
 
 ---
 
@@ -34,18 +44,20 @@ This project demonstrates a fully automated **Data Engineering Pipeline**. It ev
 retail-etl-jenkins/
 ├── data/                        # Shared Volume: CSV files land here
 ├── script/
-│   ├── generate_data.py         # [Auto] Generates daily data
-│   └── trigger_etl.py           # [New] Python bridge to trigger PL/SQL
+│   ├── generate_data.py         # [Auto] Generates data (95% Valid / 5% Invalid)
+│   ├── trigger_etl.py           # [Auto] Python bridge to trigger PL/SQL
+│   └── data_truncate.py         # [Util] Smart SQL Runner to reset schema safely
 ├── sql/
-│   ├── 00_archive_table_DDL.sql # [Run Once] Creates Raw Vault
+│   ├── 00_archive_table_DDL.sql # [Run Once] Creates PERMANENT Vault & Error Tables
 │   ├── 01_setup_users.sql       # [Run Once] Creates RETAIL_DW user
 │   ├── 02_directory_creation.sql# [Run Once] Maps /data volume
-│   ├── 03_ddl_tables.sql        # [Run Once] Creates Fact/Dim tables
-│   └── 04_plsql_pkg.sql         # [Logic] Main ETL Package
-├── Jenkinsfile                  # [New] Defines the CI/CD Pipeline
-├── docker-compose.yml           # [Updated] Services: Oracle + Jenkins
-├── dockerfile                   # [New] Custom Jenkins Image (w/ Python & OracleDB)
+│   ├── 03_ddl_tables.sql        # [Daily] Resets Fact/Dim tables (Analysis Layer)
+│   └── 04_plsql_pkg.sql         # [Logic] Main ETL with Error Handling logic
+├── Jenkinsfile                  # [Pipeline] Defines the 4-Stage CI/CD Flow
+├── docker-compose.yml           # [Infra] Services: Oracle XE + Jenkins
+├── dockerfile                   # [Infra] Custom Jenkins Image (w/ Python & OracleDB)
 └── README.md
+
 ```
 
 ---
@@ -65,104 +77,81 @@ docker-compose up -d --build
 
 ### 2. Database Initialization (Run Once)
 
-Since this is a fresh setup, you must initialize the database objects.
+You must initialize the system and permanent storage tables.
 
 **A. System Setup (Run as SYSTEM)**
 
 ```sql
 @sql/01_setup_users.sql
 @sql/02_directory_creation.sql
-
 ```
 
-**B. Application Setup (Run as RETAIL_DW)**
+**B. Permanent Storage Setup (Run as RETAIL_DW)**
+*Crucial: This creates the tables that must never be dropped (Vault & Errors).*
 
 ```sql
 @sql/00_archive_table_DDL.sql
+```
+
+**C. Application Setup (Run as RETAIL_DW)**
+
+```sql
 @sql/03_ddl_tables.sql
 @sql/04_plsql_pkg.sql
-
 ```
 
 ---
 
-## 🤖 Jenkins Configuration (First Run)
+## 🤖 Jenkins Configuration
 
-### 1. Unlock Jenkins
-
-1. Open `http://localhost:8080` in your browser.
-2. Get the Admin Password from your terminal:
+1. **Unlock Jenkins:** Retrieve the initial password:
 ```bash
 docker exec retail_jenkins cat /var/jenkins_home/secrets/initialAdminPassword
-
 ```
 
 
-3. Paste the password and click **Continue**.
-4. Select **"Install Suggested Plugins"**.
-
-### 2. Create the Pipeline Job
-
-1. **Dashboard** > **New Item**.
-2. **Name:** `Retail-ETL-Pipeline`.
-3. **Type:** Select **Pipeline** and click **OK**.
-4. Scroll down to the **Pipeline** section.
-5. **Definition:** Select `Pipeline script`.
-6. **Script:** Copy the content of the `Jenkinsfile` from your project folder and paste it here.
-* *Note: We paste it manually because we are using the "Local Mount" strategy for faster development.*
-
-
-7. Click **Save**.
+2. **Create Job:** New Item -> Pipeline -> Name: `Retail-ETL-Pipeline`.
+3. **Pipeline Script:** Copy content from `Jenkinsfile` in your project folder.
+4. **Run:** Click **Build Now**.
 
 ---
 
-## ▶️ How to Run the Pipeline
+## 📊 Validation & Auditing
 
-1. Go to the **Retail-ETL-Pipeline** dashboard.
-2. Click **Build Now** on the left menu.
-3. Watch the **Stage View** progress bars:
-* ✅ **0. Sync Local Code:** Copies your latest script edits.
-* ✅ **1. Generate Data:** Creates today's sales CSV.
-* ✅ **2. Run ETL:** Triggers the Oracle Stored Procedure.
+Run these queries in your SQL Client to verify the pipeline's logic.
 
+### 1. Verify "Zero Data Loss" Split
 
-
----
-
-## 📊 Validation
-
-To confirm the pipeline worked, run these queries in your SQL Client (e.g., SQL Developer, DBeaver) connected to `localhost:1521` as `RETAIL_DW`.
-
-### 1. Check the Job History (Raw Vault)
-
-Confirm that a new batch was created and the file was archived.
+Confirm that the total rows generated match the sum of Valid + Rejected rows.
 
 ```sql
-SELECT batch_id, source_file, archived_at, count(*) as row_count 
-FROM raw_sales_archive 
-GROUP BY batch_id, source_file, archived_at 
-ORDER BY batch_id DESC;
-
+SELECT 
+    (SELECT count(*) FROM fact_sales) AS "Valid Rows (Analysis)",
+    (SELECT count(*) FROM err_sales_rejects) AS "Rejected Rows (Audit)",
+    (SELECT count(*) FROM raw_sales_archive WHERE batch_id = (SELECT max(batch_id) FROM raw_sales_archive)) AS "Total Vault Rows"
+FROM dual;
 ```
 
-### 2. Check the Business Data (Star Schema)
+### 2. Analyze Rejections
 
-Confirm the data landed in the analytics tables.
+Check the `ERR_SALES_REJECTS` table to understand why data was excluded from the report.
 
 ```sql
-SELECT * FROM fact_sales ORDER BY sales_id DESC FETCH FIRST 10 ROWS ONLY;
-
+SELECT reason, count(*) 
+FROM err_sales_rejects 
+GROUP BY reason;
 ```
+
+*Expected Output:* `Data Quality: Missing Category` (approx 50 rows).
 
 ---
 
-## 🔮 Future
+## 🔮 Roadmap (Next Phase)
 
-* [ ] **Airflow Orchestration:** Migrating the workflow to Apache Airflow to handle complex dependencies and retries as a different repository.
-* [ ] **Advanced Logging:** Storing execution logs in a dedicated database table.
-* [ ] **Efficient Filtering:** Currently we get 95% of the data to fact sales data, further improvement on filtering logic might be added as we progress on Airflow migration
+* [ ] **Apache Airflow:** Migrate orchestration to Airflow DAGs for complex dependency management (New repository).
+* [ ] **Email Alerts:** Configure notification triggers for high rejection rates.
 
 ---
 
 **Author:** Pravin
-**Mail:** pravin.puducherry@gmail.com
+**Contact:** pravin.puducherry@gmail.com
